@@ -2,6 +2,8 @@
 name = "paraloom-prover-wasm"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/paraloom-labs/paraloom-prover-wasm"
 description = "Client-side Groth16 withdrawal and transfer prover for the Paraloom wallet (WASM)"
 
 [lib]
