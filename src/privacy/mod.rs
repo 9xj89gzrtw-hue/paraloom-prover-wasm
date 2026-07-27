@@ -6,6 +6,17 @@
 #[path = "../../../paraloom-core/src/privacy/poseidon.rs"]
 pub mod poseidon;
 
+// The proof-suite envelope the L2 carries settlement proofs in. Included
+// rather than re-declared so the browser and the node agree on the tag by
+// construction: a copied constant is one edit away from disagreeing, and the
+// symptom would be proofs rejected at ingress with nothing pointing at why.
+#[path = "../../../paraloom-core/src/privacy/error.rs"]
+pub mod error;
+pub use error::{PrivacyError, Result};
+
+#[path = "../../../paraloom-core/src/privacy/proof_codec.rs"]
+pub mod proof_codec;
+
 // The snarkjs-compatible QAP reduction `circuits.rs` proves under. The
 // ceremony key comes out of snarkjs, which prepares the powers of tau in
 // Lagrange basis, so the prover has to match it — the browser and the node

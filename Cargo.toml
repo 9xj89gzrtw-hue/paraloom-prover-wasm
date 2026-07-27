@@ -30,6 +30,8 @@ wasm-bindgen = "0.2"
 # Force the JS backend so arkworks' rng works in the browser.
 getrandom = { version = "0.2", features = ["js"] }
 hex = "0.4"
+# `privacy::error`, pulled in by the shared proof-suite codec.
+thiserror = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # ext_data_hash = sha256(recipient || amount), matching the on-chain derivation.

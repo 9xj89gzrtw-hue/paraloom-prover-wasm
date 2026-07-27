@@ -530,13 +530,21 @@ pub fn prove_transact(
         .serialize_compressed(&mut proof_bytes)
         .map_err(|e| JsValue::from_str(&format!("serialize failed: {e}")))?;
 
+    // The L2 carries `tag(1) || body`. Nodes split the envelope and reject an
+    // unknown suite rather than assuming the one they happen to embed, so an
+    // untagged blob does not settle.
+    let wire = privacy::proof_codec::tag_proof(
+        privacy::proof_codec::ProofSuite::Groth16Bn254TransactV3,
+        &proof_bytes,
+    );
+
     Ok(format!(
         "{{\"nullifiers\":[\"{}\",\"{}\"],\"output_commitments\":[\"{}\",\"{}\"],\"proof\":\"{}\"}}",
         hex::encode(nullifiers[0]),
         hex::encode(nullifiers[1]),
         hex::encode(output_commitments[0]),
         hex::encode(output_commitments[1]),
-        hex::encode(proof_bytes)
+        hex::encode(wire)
     ))
 }
 
