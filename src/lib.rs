@@ -1,9 +1,13 @@
-//! Client-side Groth16 withdrawal prover for the Paraloom wallet.
+//! Client-side Groth16 prover for the Paraloom wallet.
 //!
-//! `prove_withdrawal` assembles the withdrawal proof entirely in the browser —
-//! the note secret never leaves the wallet — and returns the ingress body the
-//! wallet POSTs to the validator network. The logic mirrors the `demo-withdraw`
-//! CLI; the circuit itself is the real paraloom-core code (see `privacy`).
+//! Proofs are assembled entirely in the browser — spend keys never leave the
+//! wallet — and each entry point returns the body the wallet POSTs to the
+//! validator network. `prove_transact` is the current settlement path (circuit
+//! v3); the v2 withdraw and transfer provers remain for the pre-v3 flows.
+//!
+//! The circuits are not reimplemented here. `privacy` includes paraloom-core's
+//! own sources by path, so the browser proves against the same constraint
+//! system the validators verify.
 
 pub mod privacy;
 
@@ -97,8 +101,7 @@ fn leaf_index_from(indices: &[bool]) -> u64 {
 
 /// Prove a spend-key withdrawal (circuit v2, #293).
 ///
-/// The successor to [`prove_withdrawal`]. Spend authority is the note's private
-/// key, not a free secret: the commitment binds `Poseidon(privkey)` and the
+/// Spend authority is the note's private key rather than a free secret: the commitment binds `Poseidon(privkey)` and the
 /// nullifier folds in a signature over `(commitment, leaf_index)`, so only the
 /// key-holder can spend and a note at a tree position yields exactly one
 /// nullifier. The proof also commits to the withdrawal's `asset_id` (finding A)
@@ -112,7 +115,7 @@ fn leaf_index_from(indices: &[bool]) -> u64 {
 ///   blinding and asset id (32-byte hex; asset id all-zero for native SOL)
 /// - `dest_recipient_hex`: the on-chain Solana destination the funds are paid to
 /// - `path_hex_json` / `indices_json`: the root-less Merkle path and its
-///   direction bits, as [`prove_withdrawal`] takes them
+///   direction bits
 ///
 /// Returns `{ nullifier, proof }` (hex).
 #[wasm_bindgen]
@@ -191,8 +194,8 @@ pub fn prove_withdrawal_v2(
 }
 
 /// An input note being spent in a transfer. `path_hex`/`indices` are the
-/// root-less Merkle path proving the note's commitment is in the tree (pulled
-/// from the path server), exactly as `prove_withdrawal` takes them.
+/// root-less Merkle path proving the note's commitment is in the tree, pulled
+/// from the path server.
 #[derive(Deserialize)]
 struct TransferInputV2 {
     amount: u64,
@@ -219,7 +222,7 @@ struct TransferOutputV2 {
 /// Build a shielded → shielded transfer proof with the spend-key construction
 /// (circuit v2, #293), entirely in the browser.
 ///
-/// The successor to [`prove_transfer`]. Fixed 2-in/2-out. Each input is spent by
+/// Fixed 2-in/2-out. Each input is spent by
 /// proving knowledge of its private key (folded into the nullifier through a
 /// signature over `(commitment, leaf_index)`), and each output binds the
 /// recipient's spend public key. All notes share one `asset_id` (all-zero for
@@ -229,10 +232,10 @@ struct TransferOutputV2 {
 /// - `proving_key`: the v2 transfer ceremony proving key bytes
 /// - `root_hex`: the inputs' membership root, 32-byte hex
 /// - `asset_id_hex`: the shared asset id, 32-byte hex (all-zero = native SOL)
-/// - `inputs_json`: JSON array of 2 [`TransferInputV2`]
-/// - `outputs_json`: JSON array of 2 [`TransferOutputV2`]
+/// - `inputs_json`: JSON array of 2 input notes
+/// - `outputs_json`: JSON array of 2 output notes
 ///
-/// Returns `{ nullifiers, output_commitments, proof }` (hex), as [`prove_transfer`].
+/// Returns `{ nullifiers, output_commitments, proof }` (hex).
 #[wasm_bindgen]
 pub fn prove_transfer_v2(
     proving_key: &[u8],
