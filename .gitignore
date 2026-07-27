@@ -1,0 +1,7 @@
+# Rust build output.
+/target
+
+# wasm-pack output. Rebuilt from source by `wasm-pack build`, and the
+# artefact that ships is the one built at release time — a stale copy in
+# git would be worse than none.
+/pkg
