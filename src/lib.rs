@@ -64,6 +64,48 @@ pub fn note_commitment(
     Ok(hex::encode(fr_to_le_bytes_32(c)))
 }
 
+/// Derive the v2 spend public key.
+///
+/// `pubkey = Poseidon(privkey)`, the value bound into a v2 note's commitment.
+/// The wallet derives its spend keypair from the account seed and publishes
+/// this pubkey as part of its shielded address, so a sender can bind an output
+/// note to it; only the holder of `privkey` can later spend that note.
+///
+/// This is the v2 hash family (domain-tagged). The v3 equivalent is
+/// [`v3_note_pubkey`], which uses circom Poseidon and is not interchangeable.
+#[wasm_bindgen]
+pub fn spend_pubkey(privkey_hex: &str) -> Result<String, JsValue> {
+    let sk = Fr::from_le_bytes_mod_order(&hex32(privkey_hex)?);
+    Ok(hex::encode(fr_to_le_bytes_32(poseidon_pubkey(sk))))
+}
+
+/// The v2 note commitment,
+/// `Poseidon(amount, Poseidon(privkey), blinding, asset_id)`.
+///
+/// Unlike the v1 [`note_commitment`], the note binds the owner's spend *public
+/// key* rather than a recipient address, and an `asset_id` (the mint's 32
+/// bytes; all-zero for native SOL). The wallet stores `(privkey, blinding,
+/// asset_id)` and recomputes this to look up the note's Merkle path.
+///
+/// Drives the v2 withdraw and transfer flows, so it lives exactly as long as
+/// [`prove_withdrawal_v2`] and [`prove_transfer_v2`] do.
+#[wasm_bindgen]
+pub fn note_commitment_v2(
+    amount: u64,
+    privkey_hex: &str,
+    blinding_hex: &str,
+    asset_id_hex: &str,
+) -> Result<String, JsValue> {
+    let sk = Fr::from_le_bytes_mod_order(&hex32(privkey_hex)?);
+    let c = poseidon_commit_spend(
+        Fr::from(amount),
+        poseidon_pubkey(sk),
+        Fr::from_le_bytes_mod_order(&hex32(blinding_hex)?),
+        Fr::from_le_bytes_mod_order(&hex32(asset_id_hex)?),
+    );
+    Ok(hex::encode(fr_to_le_bytes_32(c)))
+}
+
 fn rng_from_entropy() -> StdRng {
     let mut seed = [0u8; 32];
     getrandom::getrandom(&mut seed).expect("browser entropy");
