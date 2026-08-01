@@ -118,7 +118,20 @@ fn prove_transact_roundtrips_against_the_persistent_keys() {
 
     // Parse the ingress-body JSON.
     let v: serde_json::Value = serde_json::from_str(&out).expect("json out");
-    let proof_bytes = hex::decode(v["proof"].as_str().unwrap()).unwrap();
+    // The "proof" field is the L2 wire form `tag(1) || body` (#686), not a bare
+    // compressed proof. Split the suite tag off before deserializing — and
+    // check it, so the test also pins that `prove_transact` tags with the v3
+    // suite. This is what the earlier version got wrong: it deserialized the
+    // tagged bytes directly, which fails on the leading tag byte, and the test
+    // never ran in CI (prover-wasm has no workflow) so nothing caught it.
+    let wire = hex::decode(v["proof"].as_str().unwrap()).unwrap();
+    let (suite, proof_bytes) =
+        paraloom_prover_wasm::privacy::proof_codec::split_tagged_proof(&wire)
+            .expect("proof carries a valid suite tag");
+    assert_eq!(
+        suite,
+        paraloom_prover_wasm::privacy::proof_codec::ProofSuite::Groth16Bn254TransactV3
+    );
     let nf0: [u8; 32] = hex::decode(v["nullifiers"][0].as_str().unwrap())
         .unwrap()
         .try_into()
@@ -145,7 +158,7 @@ fn prove_transact_roundtrips_against_the_persistent_keys() {
     // Verify against the persistent verifying key with the 8 public inputs in
     // circuit order — the same check the on-chain verifier performs.
     let vk = ark_groth16::VerifyingKey::<Bn254>::deserialize_compressed(&vk_bytes[..]).unwrap();
-    let proof = ark_groth16::Proof::<Bn254>::deserialize_compressed(&proof_bytes[..]).unwrap();
+    let proof = ark_groth16::Proof::<Bn254>::deserialize_compressed(proof_bytes).unwrap();
 
     let mut hasher = <sha2::Sha256 as sha2::Digest>::new();
     sha2::Digest::update(&mut hasher, recipient);
