@@ -425,6 +425,26 @@ pub fn v3_note_commitment(
     Ok(hex::encode(fr_to_le_bytes_32(c)))
 }
 
+/// The v3 note commitment for an arbitrary asset (#779): identical to
+/// [`v3_note_commitment`] but takes the note's `asset_id` (all-zero for native
+/// SOL, or `mint_to_asset(mint)` for a shielded SPL note) instead of assuming
+/// native. Used to locate a shielded SPL note's leaf in the on-chain tree.
+#[wasm_bindgen]
+pub fn v3_note_commitment_asset(
+    amount: u64,
+    pubkey_hex: &str,
+    blinding_hex: &str,
+    asset_id_hex: &str,
+) -> Result<String, JsValue> {
+    let c = v3_commit(
+        Fr::from(amount),
+        Fr::from_le_bytes_mod_order(&hex32(pubkey_hex)?),
+        Fr::from_le_bytes_mod_order(&hex32(blinding_hex)?),
+        Fr::from_le_bytes_mod_order(&hex32(asset_id_hex)?),
+    );
+    Ok(hex::encode(fr_to_le_bytes_32(c)))
+}
+
 /// An input note being spent by `prove_transact`. `path_hex` is the 32-entry
 /// sibling list from the tree (level 0 first); the left/right direction at
 /// each level comes from the bits of `leaf_index`, so no direction flags are
