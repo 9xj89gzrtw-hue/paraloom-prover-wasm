@@ -384,7 +384,22 @@ pub fn prove_transfer_v2(
 // ===== circuit v3 (#350): unified transact =====
 
 use privacy::circuits::{TransactCircuitV3, TX_LEVELS};
-use privacy::poseidon_circom::{v3_commit, v3_nullifier, v3_pubkey, v3_signature};
+use privacy::poseidon_circom::{v3_commit, v3_merkle_pair, v3_nullifier, v3_pubkey, v3_signature};
+
+/// Derive the shielded-asset field element for an SPL `mint` (#779):
+/// `Poseidon(2)` over the mint's two 16-byte little-endian halves. Matches the
+/// on-chain `merkle_tree::mint_to_asset` exactly, so a wallet-built SPL note or
+/// transact proof carries the same `asset_id` the program derives from the mint
+/// account. Native SOL keeps the all-zero asset and never calls this.
+///
+/// `mint_hex` is the 32-byte mint pubkey, hex. Returns the 32-byte asset id, hex.
+#[wasm_bindgen]
+pub fn mint_to_asset(mint_hex: &str) -> Result<String, JsValue> {
+    let mint = hex32(mint_hex)?;
+    let lo = Fr::from_le_bytes_mod_order(&mint[..16]);
+    let hi = Fr::from_le_bytes_mod_order(&mint[16..]);
+    Ok(hex::encode(fr_to_le_bytes_32(v3_merkle_pair(lo, hi))))
+}
 
 /// Derive the v3 spend public key `Poseidon1(privkey)` (circom Poseidon).
 #[wasm_bindgen]
@@ -453,6 +468,7 @@ pub fn prove_transact(
     root_hex: &str,
     ext_amount: i64,
     recipient_hex: &str,
+    asset_id_hex: &str,
     inputs_json: &str,
     outputs_json: &str,
 ) -> Result<String, JsValue> {
@@ -472,7 +488,9 @@ pub fn prove_transact(
         return Err(JsValue::from_str("transact is fixed 2-in/2-out"));
     }
 
-    let asset = Fr::from(0u64); // NATIVE_SOL
+    // The shielded asset: all-zero for native SOL, or `mint_to_asset(mint)` for
+    // a shielded SPL note (#779). All notes in one transact share one asset.
+    let asset = Fr::from_le_bytes_mod_order(&hex32(asset_id_hex)?);
 
     let mut in_amounts = Vec::new();
     let mut in_privkeys = Vec::new();
